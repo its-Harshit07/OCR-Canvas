@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* Warm Dark Neutral Design Tokens */
+  --bg-app: #0c0c0c;
+  --bg-surface: #141414;
+  --bg-surface-elevated: #1c1c1c;
+  --bg-surface-hover: #242424;
+  
+  --border-subtle: #242424;
+  --border-medium: #303030;
+  --border-focus: #505050;
+  
+  --text-primary: #f4f1ea;   /* Warm off-white/cream */
+  --text-secondary: #b0a99f; /* Warm taupe/grey */
+  --text-muted: #746e65;     /* Muted warm grey */
+  --text-dim: #4d4841;
+  
+  --btn-primary-bg: #f4f1ea;
+  --btn-primary-fg: #121212;
+  --btn-primary-hover: #e4dfd3;
+  
+  --btn-secondary-bg: #1c1c1c;
+  --btn-secondary-border: #2e2e2e;
+  --btn-secondary-fg: #f4f1ea;
+  --btn-secondary-hover: #242424;
+
+  --accent-amber: #d97706;
+  --accent-amber-subtle: rgba(217, 119, 6, 0.12);
+  
+  --color-destructive: #dc2626;
+  --color-destructive-bg: rgba(220, 38, 38, 0.12);
+
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Warm Dark Card and Panel Styles */
+.warm-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.warm-card {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s ease-in-out;
+}
+
+.warm-card:hover {
+  border-color: var(--border-medium);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c0c0c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #282828;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #383838;
+}
+
+/* Canvas wrapper shadow */
+.canvas-wrapper {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+}
+
+/* Animations for Landing Page */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1.5deg); }
+}
+
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(10px) rotate(-1.5deg); }
+}
+
+@keyframes centerToTopCloudy {
+  0% {
+    opacity: 0;
+    filter: blur(18px);
+    transform: translate(-50%, 140px) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translate(-50%, 0px) scale(1.05);
+  }
+  70% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translate(-50%, -220px) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(24px);
+    transform: translate(-50%, -440px) scale(1.18);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatReverse 6s ease-in-out infinite;
+}
+
+.animate-cloudy-rise-1 {
+  animation: centerToTopCloudy 9s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+.animate-cloudy-rise-2 {
+  animation: centerToTopCloudy 9s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 3s;
+}
+
+.animate-cloudy-rise-3 {
+  animation: centerToTopCloudy 9s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 6s;
+}
+
+
+
