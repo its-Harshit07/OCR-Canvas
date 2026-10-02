@@ -15,6 +15,7 @@ export default function App() {
   const [activeDocId, setActiveDocId] = useState(null);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedElementId, setSelectedElementId] = useState(null);
+  const [zoomScale, setZoomScale] = useState(1.0);
   const [showBackgroundMask, setShowBackgroundMask] = useState(true);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 

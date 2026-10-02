@@ -247,7 +247,7 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
             
             {/* Left Document Card: Draft & Outline */}
-            <div className={`rounded-3xl p-6 shadow-2xl relative overflow-hidden transform md:-rotate-1 transition-transform hover:rotate-0 duration-300 group border ${
+            <div className={`md:col-span-4 rounded-3xl p-6 shadow-2xl relative overflow-hidden transform md:-rotate-1 transition-transform hover:rotate-0 duration-300 group border ${
               isDark ? 'bg-[#141414] border-[#282828] hover:border-[#d97706]/40' : 'bg-white border-slate-200 hover:border-amber-400'
             }`}>
               <div className={`flex items-center justify-between pb-3 border-b mb-3 ${isDark ? 'border-[#242424]' : 'border-slate-100'}`}>
