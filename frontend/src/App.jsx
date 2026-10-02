@@ -15,8 +15,16 @@ export default function App() {
   const [activeDocId, setActiveDocId] = useState(null);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedElementId, setSelectedElementId] = useState(null);
-  const [zoomScale, setZoomScale] = useState(1.0);
   const [showBackgroundMask, setShowBackgroundMask] = useState(true);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -423,7 +431,9 @@ export default function App() {
   const canRedo = (currentDocument?.historyIndex || 0) < ((currentDocument?.history || []).length - 1);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none overflow-hidden">
+    <div className={`min-h-screen transition-colors duration-200 flex flex-col font-sans select-none overflow-hidden ${
+      theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
+    }`}>
       {/* Error Toast Notification */}
       {errorMessage && (
         <div className="fixed top-4 right-4 z-50 bg-red-950/90 border border-red-500/50 text-red-200 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-slide-in">
@@ -449,6 +459,8 @@ export default function App() {
         <LandingPage
           onFileSelected={handleFilesSelected}
           onShowPrivacyAudit={() => setShowPrivacyAudit(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       ) : (
         <div className="h-screen flex flex-col">
@@ -474,6 +486,8 @@ export default function App() {
             canRedo={canRedo}
             onUndo={handleUndo}
             onRedo={handleRedo}
+            theme={theme}
+            onToggleTheme={toggleTheme}
           />
 
           {/* Main Editor Workspace */}
@@ -492,10 +506,13 @@ export default function App() {
                 setSelectedElementId(null);
               }}
               onAddTextElement={handleAddTextElement}
+              theme={theme}
             />
 
             {/* Central Canvas Viewport */}
-            <main className="flex-1 bg-slate-950 overflow-auto flex items-center justify-center p-4 relative">
+            <main className={`flex-1 overflow-auto flex items-center justify-center p-4 relative transition-colors ${
+              theme === 'dark' ? 'bg-slate-950' : 'bg-slate-200'
+            }`}>
               {activePage && (
                 <FabricCanvas
                   page={activePage}
@@ -505,6 +522,7 @@ export default function App() {
                   onSelectElement={setSelectedElementId}
                   onElementChange={handleElementChange}
                   fabricCanvasRef={fabricCanvasRef}
+                  theme={theme}
                 />
               )}
             </main>
@@ -516,6 +534,7 @@ export default function App() {
               onDeleteElement={handleDeleteElement}
               localFonts={localDeviceFonts}
               onLocalFontsUpdated={setLocalDeviceFonts}
+              theme={theme}
             />
           </div>
         </div>
