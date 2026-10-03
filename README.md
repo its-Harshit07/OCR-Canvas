@@ -223,9 +223,6 @@ Before deployment:
 -   Test production PDF and PNG export separately from local
     development.
 
-## License
-
-Add the project's chosen license before public distribution.
 
 ## Project Status
 
