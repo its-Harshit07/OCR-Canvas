@@ -69,6 +69,50 @@ export default function FabricCanvas({
   const displayW = Math.round(sourceW * effectiveScale);
   const displayH = Math.round(sourceH * effectiveScale);
 
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 });
+
+  // Active Viewport Drag Panning
+  const handleViewportMouseDown = (e) => {
+    // Trigger canvas panning on middle click or clicking empty stage background
+    const isStageBg = e.target === containerRef.current || e.target.classList.contains('source-image') || e.target.classList.contains('document-stage');
+    if (isStageBg && (e.button === 0 || e.button === 1)) {
+      if (onSelectElement) onSelectElement(null);
+      setIsPanning(true);
+      if (containerRef.current) {
+        panStartRef.current = {
+          startX: e.clientX,
+          startY: e.clientY,
+          scrollLeft: containerRef.current.scrollLeft,
+          scrollTop: containerRef.current.scrollTop,
+        };
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e) => {
+      if (!containerRef.current) return;
+      const dx = e.clientX - panStartRef.current.startX;
+      const dy = e.clientY - panStartRef.current.startY;
+      containerRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
+      containerRef.current.scrollTop = panStartRef.current.scrollTop - dy;
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPanning]);
+
   // Handle Dragging Elements (in source coordinate space)
   const handleMouseDownElement = (e, el) => {
     if (e.button !== 0) return; // Left click only
@@ -118,7 +162,10 @@ export default function FabricCanvas({
   return (
     <div
       ref={containerRef}
-      className="editor-viewport relative w-full h-full min-h-full flex items-center justify-center bg-slate-950 overflow-auto select-none p-4"
+      onMouseDown={handleViewportMouseDown}
+      className={`editor-viewport relative w-full h-full min-h-full bg-slate-950 overflow-auto select-none p-6 md:p-10 flex transition-colors ${
+        isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+      }`}
       onClick={(e) => {
         if (e.target === containerRef.current && onSelectElement) {
           onSelectElement(null);
@@ -126,9 +173,9 @@ export default function FabricCanvas({
       }}
     >
       {page?.backgroundImage ? (
-        /* IMMUTABLE UNTIMMED DOCUMENT STAGE */
+        /* IMMUTABLE UNTRIMMED DOCUMENT STAGE */
         <div
-          className="document-stage relative shadow-2xl rounded-sm overflow-hidden bg-white shrink-0"
+          className="document-stage relative shadow-2xl rounded-sm overflow-hidden bg-white shrink-0 m-auto"
           style={{
             width: `${displayW}px`,
             height: `${displayH}px`,
@@ -172,7 +219,8 @@ export default function FabricCanvas({
 
               const isMoved = Math.abs(el.x - origX) > 1 || Math.abs(el.y - origY) > 1;
               const isContentChanged = el.text !== el.originalText;
-              const isEdited = el.isEdited || el.isNew || el.isUserCreated || isMoved || isContentChanged;
+              const isDeleted = Boolean(el.isDeleted);
+              const isEdited = el.isEdited || el.isNew || el.isUserCreated || isMoved || isContentChanged || isDeleted;
               const isSelected = selectedElementId === el.id;
 
               // Compute precise float display positions to prevent rounding shift
@@ -186,6 +234,25 @@ export default function FabricCanvas({
               const scaledOrigW = Math.max(10, origW * effectiveScale);
               const scaledOrigH = Math.max(10, origH * effectiveScale);
 
+              const bgColor = el.bgColor || '#ffffff';
+              const elementKey = `${page?.id || 'page'}-${el.id}`;
+
+              if (isDeleted) {
+                return (
+                  <div
+                    key={elementKey}
+                    className="absolute pointer-events-none z-15"
+                    style={{
+                      left: `${scaledOrigX}px`,
+                      top: `${scaledOrigY}px`,
+                      width: `${scaledOrigW}px`,
+                      height: `${scaledOrigH}px`,
+                      backgroundColor: bgColor,
+                    }}
+                  />
+                );
+              }
+
               // Compute bounded font size to ensure edited text strictly matches original document height
               const boxHeightFontSize = Math.max(8, (origH || el.height || 14) * 0.85);
               const targetFontSize = (el.fontSize && el.fontSize <= (origH || el.height) * 1.1)
@@ -194,13 +261,9 @@ export default function FabricCanvas({
               const scaledFontSize = Math.max(8, targetFontSize * effectiveScale);
 
               const textColor = el.color || '#000000';
-              const bgColor = el.bgColor || '#ffffff';
-
               const normalizedFontWeight = typeof el.fontWeight === 'number'
                 ? el.fontWeight
                 : (el.fontWeight === 'bold' || el.fontWeight === '700' ? 700 : 400);
-
-              const elementKey = `${page?.id || 'page'}-${el.id}`;
 
               return (
                 <React.Fragment key={elementKey}>

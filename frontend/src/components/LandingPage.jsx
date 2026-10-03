@@ -18,9 +18,18 @@ import {
   Moon
 } from 'lucide-react';
 
-export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme = 'light', onToggleTheme }) {
+export default function LandingPage({ 
+  onFileSelected, 
+  onShowPrivacyAudit, 
+  theme = 'light', 
+  onToggleTheme,
+  hasConsented = false,
+  onConsentChange,
+  setErrorMessage
+}) {
   const isDark = theme === 'dark';
   const [isDragging, setIsDragging] = useState(false);
+  const [attemptedWithoutConsent, setAttemptedWithoutConsent] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const fileInputRef = useRef(null);
 
@@ -39,6 +48,23 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const requireConsentFirst = (actionCallback) => {
+    if (!hasConsented) {
+      setAttemptedWithoutConsent(true);
+      if (setErrorMessage) {
+        setErrorMessage("Please read and acknowledge the User Responsibility & Usage Notice before uploading a document.");
+      }
+      const consentElem = document.getElementById('mandatory-consent-box');
+      if (consentElem) {
+        consentElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return false;
+    }
+    setAttemptedWithoutConsent(false);
+    if (actionCallback) actionCallback();
+    return true;
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     setIsDragging(true);
@@ -51,12 +77,17 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
+    if (!requireConsentFirst()) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       onFileSelected(e.dataTransfer.files);
     }
   };
 
   const handleFileChange = (e) => {
+    if (!requireConsentFirst()) {
+      e.target.value = '';
+      return;
+    }
     if (e.target.files && e.target.files.length > 0) {
       onFileSelected(e.target.files);
     }
@@ -83,7 +114,6 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none">
         {cloudyBullets.map((b, idx) => {
           const IconComp = b.icon;
-          // Calculate rapid scroll acceleration offset
           const scrollShift = scrollY * 2.8;
 
           return (
@@ -94,7 +124,6 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
                 marginTop: `${-scrollShift}px`,
               }}
             >
-              {/* Big, Broad, Bold Pill Container */}
               <div className={`flex items-center gap-4 px-8 py-3.5 sm:px-12 sm:py-4.5 rounded-full border-2 shadow-[0_20px_50px_rgba(0,0,0,0.15)] backdrop-blur-xl text-sm sm:text-base font-extrabold tracking-wider uppercase whitespace-nowrap ${
                 isDark 
                   ? 'bg-[#161616]/95 border-[#333333] text-[#f4f1ea] shadow-[#d97706]/10' 
@@ -155,8 +184,10 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
           </button>
           
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
             className={`px-5 py-2.5 rounded-full font-bold text-xs transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${
+              !hasConsented ? 'opacity-80' : ''
+            } ${
               isDark
                 ? 'bg-[#f4f1ea] hover:bg-[#e4dfd3] text-[#121212] shadow-[#f4f1ea]/10'
                 : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-400/30'
@@ -192,12 +223,12 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
           </p>
         </div>
 
-        {/* 100% CODE-BASED INTERACTIVE HERO COMPOSITION WITH FLOWING BADGES & HOVER GLOWS */}
+        {/* 100% CODE-BASED INTERACTIVE HERO COMPOSITION */}
         <div className="w-full relative my-6 max-w-5xl z-20">
 
           {/* FLOWING ANIMATED CHIPS: OCR, PDF, PNG */}
           <div 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
             className={`absolute -top-5 left-6 sm:left-12 z-30 animate-float-slow flex items-center gap-1.5 px-4 py-2 rounded-full border shadow-xl backdrop-blur-md text-xs font-bold font-mono cursor-pointer transition-all hover:scale-110 active:scale-95 ${
               isDark ? 'bg-[#1c1c1c]/90 border-[#2e2e2e] text-[#f4f1ea]' : 'bg-white/95 border-slate-300 text-slate-900'
             }`}
@@ -207,7 +238,7 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
           </div>
 
           <div 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
             className={`absolute -top-4 right-20 sm:right-32 z-30 animate-float-reverse flex items-center gap-1.5 px-4 py-2 rounded-full border shadow-xl backdrop-blur-md text-xs font-bold font-mono cursor-pointer transition-all hover:scale-110 active:scale-95 ${
               isDark ? 'bg-[#1c1c1c]/90 border-[#2e2e2e] text-[#f4f1ea]' : 'bg-white/95 border-slate-300 text-slate-900'
             }`}
@@ -217,7 +248,7 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
           </div>
 
           <div 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
             className={`absolute bottom-10 -left-4 sm:-left-8 z-30 animate-float-slow flex items-center gap-1.5 px-4 py-2 rounded-full border shadow-xl backdrop-blur-md text-xs font-bold font-mono cursor-pointer transition-all hover:scale-110 active:scale-95 ${
               isDark ? 'bg-[#1c1c1c]/90 border-[#2e2e2e] text-[#f4f1ea]' : 'bg-white/95 border-slate-300 text-slate-900'
             }`}
@@ -228,7 +259,7 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
 
           <div className="absolute top-1/2 -right-4 -translate-y-1/2 z-30 hidden lg:flex flex-col gap-3">
             <span 
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
               className={`px-4 py-2 rounded-full font-bold text-xs shadow-xl flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 active:scale-95 ${
                 isDark ? 'bg-[#f4f1ea] text-[#121212] hover:bg-[#e4dfd3]' : 'bg-slate-900 text-white hover:bg-slate-800'
               }`}
@@ -308,7 +339,6 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
               <div className={`p-6 sm:p-8 relative min-h-[260px] flex flex-col justify-between ${
                 isDark ? 'bg-[#141414]' : 'bg-slate-50/50'
               }`}>
-                {/* Simulated Document Canvas Content */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`text-lg sm:text-xl font-extrabold font-heading tracking-tight ${
@@ -327,7 +357,6 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
                     Unlock text from PDFs & images with ease. Click any detected region, modify text content, and export lossless output without layout shift.
                   </p>
 
-                  {/* Active Highlight Bounding Box */}
                   <div className="p-3.5 rounded-xl border-2 border-dashed border-[#d97706] bg-[#d97706]/10 relative my-3 shadow-inner">
                     <div className="absolute -top-2.5 left-4 px-2 py-0.2 rounded-full bg-[#d97706] text-[#121212] font-mono text-[9px] font-bold uppercase shadow">
                       Active Selection
@@ -341,7 +370,6 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
                   </div>
                 </div>
 
-                {/* Toolbar Controls at bottom of window */}
                 <div className={`pt-4 border-t flex items-center justify-between text-xs ${
                   isDark ? 'border-[#242424]' : 'border-slate-200'
                 }`}>
@@ -359,7 +387,7 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
                       className={`px-4 py-2 rounded-full font-bold text-xs transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 ${
                         isDark ? 'bg-[#f4f1ea] hover:bg-[#e4dfd3] text-[#121212]' : 'bg-slate-900 hover:bg-slate-800 text-white'
                       }`}
@@ -374,14 +402,69 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
           </div>
         </div>
 
-        {/* Upload Dropzone Container */}
-        <div className="w-full max-w-2xl my-6 z-20">
+        {/* MANDATORY CONSENT CHECKBOX & UPLOAD SECTION */}
+        <div className="w-full max-w-2xl my-6 z-20 flex flex-col items-center">
+          
+          {/* MANDATORY CONSENT CHECKBOX BOX */}
+          <div
+            id="mandatory-consent-box"
+            className={`w-full p-4 sm:p-5 rounded-2xl border transition-all duration-300 shadow-xl mb-4 ${
+              attemptedWithoutConsent && !hasConsented
+                ? 'border-red-500 bg-red-500/10 ring-2 ring-red-500/40 animate-pulse'
+                : hasConsented
+                  ? isDark
+                    ? 'bg-emerald-950/20 border-emerald-500/40'
+                    : 'bg-emerald-50/80 border-emerald-300'
+                  : isDark
+                    ? 'bg-[#141414] border-[#2e2e2e]'
+                    : 'bg-amber-50/70 border-amber-200'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="user-consent-checkbox"
+                checked={hasConsented}
+                onChange={(e) => {
+                  onConsentChange?.(e.target.checked);
+                  if (e.target.checked) setAttemptedWithoutConsent(false);
+                }}
+                className="mt-0.5 w-4.5 h-4.5 rounded border-slate-400 text-[#d97706] focus:ring-[#d97706] cursor-pointer shrink-0"
+              />
+              <label htmlFor="user-consent-checkbox" className={`text-xs sm:text-sm font-medium leading-relaxed cursor-pointer select-none ${
+                isDark ? 'text-[#f4f1ea]' : 'text-slate-900'
+              }`}>
+                I have read and understood the{' '}
+                <a
+                  href="#responsibility-notice"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('responsibility-notice')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="underline text-[#d97706] font-bold hover:text-amber-500"
+                >
+                  User Responsibility & Usage Notice
+                </a>{' '}
+                below and agree to proceed.
+              </label>
+            </div>
+            
+            {attemptedWithoutConsent && !hasConsented && (
+              <p className="text-xs font-semibold text-red-400 mt-2.5 ml-7 flex items-center gap-1.5 animate-fade-in">
+                <span>⚠️ Please check this box to acknowledge the Usage Notice before uploading a document.</span>
+              </p>
+            )}
+          </div>
+
+          {/* Upload Dropzone Container */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`rounded-3xl p-8 flex flex-col items-center justify-center border-2 border-dashed transition-all cursor-pointer group shadow-2xl ${
+            onClick={() => requireConsentFirst(() => fileInputRef.current?.click())}
+            className={`w-full rounded-3xl p-8 flex flex-col items-center justify-center border-2 border-dashed transition-all cursor-pointer group shadow-2xl ${
+              !hasConsented ? 'opacity-90' : ''
+            } ${
               isDragging
                 ? 'border-[#d97706] bg-[#d97706]/10 scale-[1.01] shadow-[0_0_30px_rgba(217,119,6,0.2)]'
                 : isDark
@@ -411,9 +494,12 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
               Supports PDF, PNG, JPG, WEBP (Max 10 MB per file)
             </p>
 
-            <button className={`px-6 py-3 rounded-full font-extrabold text-xs transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2 ${
-              isDark ? 'bg-[#f4f1ea] hover:bg-[#e4dfd3] text-[#121212]' : 'bg-slate-900 hover:bg-slate-800 text-white'
-            }`}>
+            <button 
+              type="button"
+              className={`px-6 py-3 rounded-full font-extrabold text-xs transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2 ${
+                isDark ? 'bg-[#f4f1ea] hover:bg-[#e4dfd3] text-[#121212]' : 'bg-slate-900 hover:bg-slate-800 text-white'
+              }`}
+            >
               <span>Choose Document Files</span>
               <ArrowRight className="w-4 h-4 text-[#d97706]" />
             </button>
@@ -460,6 +546,104 @@ export default function LandingPage({ onFileSelected, onShowPrivacyAudit, theme 
             </div>
           </div>
         </div>
+
+        {/* USER RESPONSIBILITY & USAGE NOTICE SECTION AT BOTTOM OF LANDING PAGE */}
+        <section id="responsibility-notice" className="w-full max-w-4xl my-10 z-20 font-sans">
+          <div className={`rounded-3xl p-6 sm:p-8 border shadow-2xl transition-all ${
+            isDark ? 'bg-[#141414] border-[#282828]' : 'bg-white border-slate-200 shadow-slate-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-amber-500/20">
+              <div className={`p-2.5 rounded-2xl border text-[#d97706] ${
+                isDark ? 'bg-[#1c1c1c] border-[#2e2e2e]' : 'bg-amber-50 border-amber-200'
+              }`}>
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className={`text-lg sm:text-xl font-extrabold tracking-tight font-heading ${
+                  isDark ? 'text-[#f4f1ea]' : 'text-slate-900'
+                }`}>
+                  User Responsibility & Usage Notice
+                </h2>
+                <p className={`text-xs ${isDark ? 'text-[#b0a99f]' : 'text-slate-600'}`}>
+                  Please read carefully before using this document editing utility.
+                </p>
+              </div>
+            </div>
+
+            {/* Notice Cards Container */}
+            <div className="space-y-4 text-xs leading-relaxed">
+              
+              {/* 1. General Responsibility & Authorization */}
+              <div className={`p-4 rounded-2xl border ${
+                isDark ? 'bg-[#181818] border-[#242424]' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <h3 className={`font-bold text-xs mb-2 flex items-center gap-2 ${isDark ? 'text-[#f4f1ea]' : 'text-slate-900'}`}>
+                  <FileText className="w-4 h-4 text-[#d97706]" />
+                  Document Ownership & Usage Authorization
+                </h3>
+                <ul className={`list-disc list-inside space-y-2 pl-1 ${isDark ? 'text-[#b0a99f]' : 'text-slate-600'}`}>
+                  <li>This tool is provided as an editing utility. Any document you upload, edit, modify, or export is entirely your responsibility.</li>
+                  <li>You are solely responsible for ensuring that you have the right, permission, or legal authorization to upload and edit any document you use with this tool.</li>
+                  <li>The developer/operator of this tool is not responsible for the content of documents uploaded or edited by users, or for any consequences resulting from the use, modification, misrepresentation, submission, or distribution of edited documents.</li>
+                  <li><strong className="text-amber-500 font-bold">Prohibited Use:</strong> Do not use this tool to alter, falsify, misrepresent, or fraudulently modify documents.</li>
+                </ul>
+              </div>
+
+              {/* 2. Sensitive & Confidential Documents Warning */}
+              <div className={`p-4 rounded-2xl border ${
+                isDark ? 'bg-amber-950/20 border-amber-500/30' : 'bg-amber-50/80 border-amber-300'
+              }`}>
+                <h3 className="font-bold text-xs mb-2 text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                  <Lock className="w-4 h-4" />
+                  Caution Regarding Sensitive & Confidential Documents
+                </h3>
+                <p className={`mb-2 text-xs ${isDark ? 'text-[#f4f1ea]' : 'text-slate-800'}`}>
+                  Use particular caution with sensitive, confidential, or legal documents, including but not limited to:
+                </p>
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                  {[
+                    'Bank details',
+                    'Financial documents',
+                    'Examination results',
+                    'Academic records',
+                    'Identity documents',
+                    'Certificates',
+                    'Employment records',
+                    'Medical documents',
+                    'Legal documents',
+                    'Personal information'
+                  ].map((item, idx) => (
+                    <span key={idx} className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                      isDark ? 'bg-[#1c1c1c] border-amber-500/30 text-amber-300' : 'bg-white border-amber-300 text-amber-900 shadow-xs'
+                    }`}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+                <p className={`text-[11px] ${isDark ? 'text-[#b0a99f]' : 'text-slate-600'}`}>
+                  You are responsible for determining whether a document is appropriate to upload and edit and whether you are authorized to do so.
+                </p>
+              </div>
+
+              {/* 3. Computer-Written vs Handwriting & English Optimization */}
+              <div className={`p-4 rounded-2xl border ${
+                isDark ? 'bg-[#181818] border-[#242424]' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <h3 className={`font-bold text-xs mb-2 flex items-center gap-2 ${isDark ? 'text-[#f4f1ea]' : 'text-slate-900'}`}>
+                  <Scan className="w-4 h-4 text-[#d97706]" />
+                  OCR Compatibility & Recognition Limitations
+                </h3>
+                <ul className={`list-disc list-inside space-y-2 pl-1 ${isDark ? 'text-[#b0a99f]' : 'text-slate-600'}`}>
+                  <li><strong>Digital & Computer-Generated Text:</strong> This tool is designed primarily for digitally generated / machine-readable documents and works best with computer-written text.</li>
+                  <li><strong>Handwriting Notice:</strong> Handwritten text is not supported as a reliable OCR input and may not be detected or edited accurately.</li>
+                  <li><strong>English Optimization:</strong> The tool is currently optimized primarily for English-language documents. OCR accuracy may be significantly lower for other languages, non-Latin scripts, or mixed-language documents.</li>
+                  <li><strong>Layout & Verification Disclaimer:</strong> OCR and document reconstruction are not guaranteed to reproduce every piece of text, formatting, font, spacing, layout, or visual detail perfectly. Always review the final exported document carefully against the original before using, submitting, sharing, printing, or relying on it.</li>
+                </ul>
+              </div>
+
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}

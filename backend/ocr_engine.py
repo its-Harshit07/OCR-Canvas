@@ -27,8 +27,8 @@ def get_rapid_ocr():
     if _rapid_ocr_instance is None:
         try:
             from rapidocr_onnxruntime import RapidOCR
-            # text_score=0.3, box_thresh=0.3, unclip_ratio=1.6 maximizes detection recall across all document text regions
-            _rapid_ocr_instance = RapidOCR(text_score=0.3, box_thresh=0.3, unclip_ratio=1.6)
+            # text_score=0.25, box_thresh=0.25, unclip_ratio=1.6 maximizes detection recall across all machine-printed text
+            _rapid_ocr_instance = RapidOCR(text_score=0.25, box_thresh=0.25, unclip_ratio=1.6)
         except Exception as e:
             _rapid_ocr_instance = False
     return _rapid_ocr_instance
@@ -145,15 +145,25 @@ def extract_dominant_text_color(img_np: np.ndarray, bbox: List[float], bg_hex: s
     return "#000000"
 
 
-def restore_background_image(img_pil: Image.Image, elements: List[Dict[str, Any]]) -> str:
+def restore_background_image(img_pil: Image.Image, elements: List[Dict[str, Any]], orig_format: str = "JPEG") -> str:
     """
     Remove detected OCR text bounding boxes from original image using localized
-    OpenCV inpainting or local surrounding background reconstruction. Returns base64 PNG.
+    OpenCV inpainting or local surrounding background reconstruction.
+    Returns base64 data URL matching original format (JPEG or PNG).
     """
+    is_png = (img_pil.mode in ("RGBA", "LA")) or (str(orig_format).upper() == "PNG")
+    fmt = "PNG" if is_png else "JPEG"
+    mime = "image/png" if is_png else "image/jpeg"
+
     if not elements:
         buffered = io.BytesIO()
-        img_pil.save(buffered, format="PNG")
-        return "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
+        if fmt == "JPEG":
+            if img_pil.mode != "RGB":
+                img_pil = img_pil.convert("RGB")
+            img_pil.save(buffered, format="JPEG", quality=95, subsampling=0)
+        else:
+            img_pil.save(buffered, format="PNG", optimize=True)
+        return f"data:{mime};base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
 
     clean_img = img_pil.copy().convert("RGB")
     clean_np = np.array(clean_img)
@@ -215,8 +225,14 @@ def restore_background_image(img_pil: Image.Image, elements: List[Dict[str, Any]
         clean_pil = Image.fromarray(clean_np)
 
     buffered = io.BytesIO()
-    clean_pil.save(buffered, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
+    if fmt == "JPEG":
+        if clean_pil.mode != "RGB":
+            clean_pil = clean_pil.convert("RGB")
+        clean_pil.save(buffered, format="JPEG", quality=95, subsampling=0)
+    else:
+        clean_pil.save(buffered, format="PNG", optimize=True)
+
+    return f"data:{mime};base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
 def compute_box_iou(box1: List[float], box2: List[float]) -> float:
@@ -378,7 +394,7 @@ def group_adjacent_line_elements(elements: List[Dict[str, Any]]) -> List[Dict[st
 
 
 
-def process_image_with_ocr(img_pil: Image.Image) -> Tuple[List[Dict[str, Any]], str, int, int]:
+def process_image_with_ocr(img_pil: Image.Image, orig_format: str = "JPEG") -> Tuple[List[Dict[str, Any]], str, int, int]:
     """
     Run Multi-Pass OCR (RapidOCR Native -> RapidOCR Upscaled -> PaddleOCR)
     with intelligent NMS deduplication.
@@ -607,9 +623,19 @@ def process_image_with_ocr(img_pil: Image.Image) -> Tuple[List[Dict[str, Any]], 
     # 5. Group horizontally adjacent word/fragment elements into complete line boxes
     final_elements = group_adjacent_line_elements(merged_elements)
 
+    is_png = (img_pil.mode in ("RGBA", "LA")) or (str(orig_format).upper() == "PNG")
+    fmt = "PNG" if is_png else "JPEG"
+    mime = "image/png" if is_png else "image/jpeg"
+
     buffered = io.BytesIO()
-    img_pil.save(buffered, format="PNG")
-    original_bg_base64 = "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
+    if fmt == "JPEG":
+        if img_pil.mode != "RGB":
+            img_pil = img_pil.convert("RGB")
+        img_pil.save(buffered, format="JPEG", quality=95, subsampling=0)
+    else:
+        img_pil.save(buffered, format="PNG", optimize=True)
+
+    original_bg_base64 = f"data:{mime};base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
     return final_elements, original_bg_base64, len(raw_elements), len(final_elements)
 
 
@@ -700,30 +726,46 @@ def process_pdf_document(pdf_bytes: bytes) -> Dict[str, Any]:
                                 "confidence": 1.0
                             })
                             
-            # Render page image for visual background canvas
-            pix = page.get_pixmap(dpi=150)
+            # Render high-resolution page image for visual background canvas & small-font OCR precision
+            pix = page.get_pixmap(dpi=220)
             img_pil = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             
             buffered = io.BytesIO()
-            img_pil.save(buffered, format="PNG")
-            bg_base64 = "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
+            img_pil.save(buffered, format="JPEG", quality=95, subsampling=0)
+            bg_base64 = "data:image/jpeg;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
             
             raw_cnt = len(elements)
             final_cnt = len(elements)
 
-            # If no native text found, run OCR fallback on rendered page image
+            # For scanned PDFs or mixed PDFs with uncaptured raster text, run OCR on rendered page image
+            ocr_elements, _, ocr_raw, ocr_final = process_image_with_ocr(img_pil, orig_format="JPEG")
+            scale_x = width / pix.width
+            scale_y = height / pix.height
+            scaled_ocr = []
+            for el in ocr_elements:
+                scaled_el = dict(el)
+                scaled_el["x"] = round(el["x"] * scale_x, 2)
+                scaled_el["y"] = round(el["y"] * scale_y, 2)
+                scaled_el["width"] = round(el["width"] * scale_x, 2)
+                scaled_el["height"] = round(el["height"] * scale_y, 2)
+                scaled_el["originalX"] = scaled_el["x"]
+                scaled_el["originalY"] = scaled_el["y"]
+                scaled_el["originalWidth"] = scaled_el["width"]
+                scaled_el["originalHeight"] = scaled_el["height"]
+                scaled_el["fontSize"] = round(el["fontSize"] * scale_y, 1)
+                scaled_ocr.append(scaled_el)
+
             if not has_native_text or len(elements) == 0:
-                ocr_elements, _, raw_cnt, final_cnt = process_image_with_ocr(img_pil)
-                # Rescale OCR elements back to page point dimensions if resolution differs
-                scale_x = width / pix.width
-                scale_y = height / pix.height
-                for el in ocr_elements:
-                    el["x"] = round(el["x"] * scale_x, 2)
-                    el["y"] = round(el["y"] * scale_y, 2)
-                    el["width"] = round(el["width"] * scale_x, 2)
-                    el["height"] = round(el["height"] * scale_y, 2)
-                    el["fontSize"] = round(el["fontSize"] * scale_y, 1)
-                elements = ocr_elements
+                elements = scaled_ocr
+                raw_cnt = ocr_raw
+                final_cnt = ocr_final
+            else:
+                # Merge native PDF text blocks with OCR image text blocks using spatial NMS deduplication
+                all_combined = elements + scaled_ocr
+                elements = merge_ocr_elements(all_combined)
+                elements = group_adjacent_line_elements(elements)
+                raw_cnt = len(all_combined)
+                final_cnt = len(elements)
                 
             total_raw += raw_cnt
             total_final += final_cnt
@@ -734,6 +776,7 @@ def process_pdf_document(pdf_bytes: bytes) -> Dict[str, Any]:
                 "width": round(width, 2),
                 "height": round(height, 2),
                 "backgroundImage": bg_base64,
+                "mimeType": "image/jpeg",
                 "elements": elements
             })
             
@@ -743,6 +786,7 @@ def process_pdf_document(pdf_bytes: bytes) -> Dict[str, Any]:
     return {
         "id": doc_id,
         "name": "Uploaded Document",
+        "mimeType": "application/pdf",
         "raw_ocr_count": total_raw,
         "normalized_count": total_final,
         "pages": pages_data
@@ -762,14 +806,18 @@ def process_uploaded_file(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         return doc_data
     elif ext in [".png", ".jpg", ".jpeg", ".webp"]:
         img_pil = Image.open(io.BytesIO(file_bytes))
+        orig_format = "PNG" if ext == ".png" or img_pil.mode in ("RGBA", "LA") else "JPEG"
+        orig_mime = "image/png" if orig_format == "PNG" else "image/jpeg"
+        
         img_pil = ImageOps.exif_transpose(img_pil)
         width, height = img_pil.size
-        elements, bg_base64, raw_cnt, final_cnt = process_image_with_ocr(img_pil)
+        elements, bg_base64, raw_cnt, final_cnt = process_image_with_ocr(img_pil, orig_format=orig_format)
         doc_id = f"doc-{uuid.uuid4().hex[:10]}"
         
         return {
             "id": doc_id,
             "name": filename,
+            "mimeType": orig_mime,
             "raw_ocr_count": raw_cnt,
             "normalized_count": final_cnt,
             "pages": [{
@@ -778,6 +826,7 @@ def process_uploaded_file(file_bytes: bytes, filename: str) -> Dict[str, Any]:
                 "width": width,
                 "height": height,
                 "backgroundImage": bg_base64,
+                "mimeType": orig_mime,
                 "elements": elements
             }]
         }

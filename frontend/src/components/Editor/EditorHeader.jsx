@@ -22,21 +22,21 @@ export default function EditorHeader({
   const isDark = theme === 'dark';
 
   return (
-    <header className={`h-14 border-b px-5 flex items-center justify-between relative z-30 shrink-0 select-none font-sans transition-colors ${
+    <header className={`min-h-14 py-1.5 px-3 md:px-5 flex flex-wrap items-center justify-between gap-2 relative z-30 shrink-0 select-none font-sans transition-colors ${
       isDark ? 'border-[#242424] bg-[#141414] text-[#f4f1ea]' : 'border-slate-200 bg-white text-slate-900'
     }`}>
       {/* Left Section: Back Button & Editable Document Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 min-w-0">
         <button
           onClick={onBackToHome}
-          className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-all cursor-pointer ${
+          className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md border transition-all cursor-pointer ${
             isDark
               ? 'text-[#b0a99f] hover:text-[#f4f1ea] bg-[#1c1c1c] hover:bg-[#242424] border-[#2a2a2a]'
               : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300'
           }`}
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
+          <span className="hidden sm:inline">Back</span>
         </button>
 
         <div className={`h-4 w-[1px] ${isDark ? 'bg-[#282828]' : 'bg-slate-300'}`} />
@@ -45,7 +45,7 @@ export default function EditorHeader({
           type="text"
           value={docName}
           onChange={(e) => onDocNameChange(e.target.value)}
-          className={`text-xs font-semibold focus:outline-none px-2 py-1 rounded border transition-all max-w-xs truncate ${
+          className={`text-xs font-semibold focus:outline-none px-1.5 py-1 rounded border transition-all max-w-[110px] sm:max-w-xs truncate ${
             isDark
               ? 'bg-transparent text-[#f4f1ea] focus:bg-[#1c1c1c] border-transparent focus:border-[#404040]'
               : 'bg-transparent text-slate-900 focus:bg-slate-100 border-transparent focus:border-slate-300'
@@ -54,7 +54,7 @@ export default function EditorHeader({
       </div>
 
       {/* Middle Section: Undo / Redo & Zoom Controls & Theme Switcher */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1.5 flex-wrap">
         {/* Undo / Redo Button Group */}
         <div className={`flex items-center rounded-md p-0.5 border text-xs ${
           isDark ? 'bg-[#0c0c0c] border-[#242424]' : 'bg-slate-100 border-slate-300'
@@ -62,7 +62,7 @@ export default function EditorHeader({
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className={`flex items-center gap-1 px-2 py-1 rounded cursor-pointer transition-colors ${
+            className={`flex items-center gap-1 px-1.5 py-1 rounded cursor-pointer transition-colors ${
               isDark
                 ? 'text-[#b0a99f] hover:text-[#f4f1ea] hover:bg-[#1c1c1c] disabled:opacity-30'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 disabled:opacity-30'
@@ -70,12 +70,12 @@ export default function EditorHeader({
             title="Undo (Ctrl+Z)"
           >
             <Undo2 className="w-3.5 h-3.5" />
-            <span className="font-medium text-[11px]">Undo</span>
+            <span className="font-medium text-[11px] hidden md:inline">Undo</span>
           </button>
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className={`flex items-center gap-1 px-2 py-1 rounded cursor-pointer transition-colors ${
+            className={`flex items-center gap-1 px-1.5 py-1 rounded cursor-pointer transition-colors ${
               isDark
                 ? 'text-[#b0a99f] hover:text-[#f4f1ea] hover:bg-[#1c1c1c] disabled:opacity-30'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 disabled:opacity-30'
@@ -83,7 +83,7 @@ export default function EditorHeader({
             title="Redo (Ctrl+Y)"
           >
             <Redo2 className="w-3.5 h-3.5" />
-            <span className="font-medium text-[11px]">Redo</span>
+            <span className="font-medium text-[11px] hidden md:inline">Redo</span>
           </button>
         </div>
 
@@ -101,7 +101,7 @@ export default function EditorHeader({
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
 
-          <span className={`px-2.5 font-mono text-[11px] font-medium min-w-[45px] text-center ${
+          <span className={`px-1.5 font-mono text-[10px] sm:text-[11px] font-medium min-w-[36px] sm:min-w-[45px] text-center ${
             isDark ? 'text-[#b0a99f]' : 'text-slate-700'
           }`}>
             {Math.round(zoomScale * 100)}%
@@ -121,7 +121,7 @@ export default function EditorHeader({
         {/* Mask Original Background Toggle */}
         <button
           onClick={onToggleMask}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all cursor-pointer ${
+          className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium transition-all cursor-pointer ${
             showBackgroundMask
               ? isDark
                 ? 'bg-[#1c1c1c] border-[#d97706]/40 text-[#f4f1ea]'
@@ -130,16 +130,16 @@ export default function EditorHeader({
                 ? 'bg-[#0c0c0c] border-[#242424] text-[#746e65] hover:text-[#b0a99f]'
                 : 'bg-slate-100 border-slate-300 text-slate-600 hover:text-slate-900'
           }`}
-          title="Toggle white background box behind text elements to mask original underlying text"
+          title="Toggle background mask"
         >
           {showBackgroundMask ? <Eye className="w-3.5 h-3.5 text-[#d97706]" /> : <EyeOff className="w-3.5 h-3.5" />}
-          <span className="text-[11px]">Mask Text</span>
+          <span className="text-[11px] hidden sm:inline">Mask Text</span>
         </button>
 
         {/* BLACK / WHITE MODE SWITCH BUTTON */}
         <button
           onClick={onToggleTheme}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all cursor-pointer ${
+          className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium transition-all cursor-pointer ${
             isDark
               ? 'bg-[#1c1c1c] hover:bg-[#282828] border-[#333] text-amber-400'
               : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
@@ -147,7 +147,7 @@ export default function EditorHeader({
           title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
         >
           {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
-          <span className="text-[11px] font-semibold">{isDark ? 'Light' : 'Dark'}</span>
+          <span className="text-[11px] font-semibold hidden sm:inline">{isDark ? 'Light' : 'Dark'}</span>
         </button>
       </div>
 
@@ -156,7 +156,7 @@ export default function EditorHeader({
         <div className="flex items-center gap-1">
           <button
             onClick={onExportPDF}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md font-semibold text-xs shadow-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-md font-semibold text-xs shadow-sm transition-all cursor-pointer ${
               isDark
                 ? 'bg-[#f4f1ea] hover:bg-[#e4dfd3] text-[#121212]'
                 : 'bg-slate-900 hover:bg-slate-800 text-white'

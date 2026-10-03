@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Layers, Plus, FileText, CheckCircle, FilePlus, X, FileImage } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Layers, Plus, FileText, CheckCircle, FilePlus, X, FileImage, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function PageSidebar({
   documents = [],
@@ -11,7 +11,9 @@ export default function PageSidebar({
   activePageIndex,
   onSelectPage,
   onAddTextElement,
-  theme = 'light'
+  theme = 'light',
+  isOpen = true,
+  onToggleOpen
 }) {
   const fileInputRef = useRef(null);
   const isDark = theme === 'dark';
@@ -23,8 +25,26 @@ export default function PageSidebar({
     if (e.target) e.target.value = '';
   };
 
+  // If collapsed, show only compact floating edge toggle button
+  if (!isOpen) {
+    return (
+      <button
+        onClick={onToggleOpen}
+        className={`absolute left-3 top-3 z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border shadow-lg text-xs font-semibold cursor-pointer transition-all ${
+          isDark
+            ? 'bg-[#1c1c1c] hover:bg-[#242424] border-[#2e2e2e] text-[#f4f1ea]'
+            : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
+        }`}
+        title="Open Pages Panel"
+      >
+        <ChevronRight className="w-4 h-4 text-[#d97706]" />
+        <span className="hidden sm:inline">Pages ({pages.length})</span>
+      </button>
+    );
+  }
+
   return (
-    <aside className={`w-60 border-r flex flex-col justify-between shrink-0 select-none overflow-hidden font-sans transition-colors ${
+    <aside className={`w-60 border-r flex flex-col justify-between shrink-0 select-none font-sans transition-colors z-30 absolute md:relative inset-y-0 left-0 shadow-2xl md:shadow-none ${
       isDark ? 'border-[#242424] bg-[#141414] text-[#f4f1ea]' : 'border-slate-200 bg-white text-slate-900'
     }`}>
       {/* Hidden File Input for Add Files */}
@@ -38,8 +58,29 @@ export default function PageSidebar({
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 1. Multi-Document Collection Panel */}
-        <div className={`p-3 border-b ${isDark ? 'border-[#242424] bg-[#0c0c0c]/40' : 'border-slate-200 bg-slate-50'}`}>
+        {/* 1. Sidebar Header with Collapse Button */}
+        <div className={`p-2.5 border-b flex items-center justify-between ${isDark ? 'border-[#242424] bg-[#0c0c0c]/60' : 'border-slate-200 bg-slate-50'}`}>
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-[#d97706]" />
+            <span className="text-xs font-bold uppercase tracking-wider">Pages & Docs</span>
+          </div>
+
+          <button
+            onClick={onToggleOpen}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border cursor-pointer transition-all ${
+              isDark
+                ? 'bg-[#1c1c1c] hover:bg-[#242424] border-[#2e2e2e] text-[#b0a99f] hover:text-[#f4f1ea]'
+                : 'bg-white hover:bg-slate-200 border-slate-300 text-slate-700'
+            }`}
+            title="Collapse Pages Panel"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="text-[11px]">Collapse</span>
+          </button>
+        </div>
+
+        {/* 2. Multi-Document Collection Panel */}
+        <div className={`p-3 border-b ${isDark ? 'border-[#242424] bg-[#0c0c0c]/40' : 'border-slate-200 bg-slate-50/50'}`}>
           <div className="flex items-center justify-between mb-2">
             <div className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${
               isDark ? 'text-[#b0a99f]' : 'text-slate-600'
@@ -110,7 +151,7 @@ export default function PageSidebar({
           </div>
         </div>
 
-        {/* 2. Pages List Header */}
+        {/* 3. Pages List Header */}
         <div className={`p-3 border-b flex items-center justify-between ${isDark ? 'border-[#242424]' : 'border-slate-200'}`}>
           <div className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${
             isDark ? 'text-[#b0a99f]' : 'text-slate-600'
@@ -132,11 +173,11 @@ export default function PageSidebar({
           </button>
         </div>
 
-        {/* 3. Pages Thumbnails List */}
+        {/* 4. Pages Thumbnails List */}
         <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
           {pages.map((p, idx) => {
             const isActive = idx === activePageIndex;
-            const textCount = p.elements?.filter((e) => e.type === 'text').length || 0;
+            const textCount = p.elements?.filter((e) => e.type === 'text' && !e.isDeleted).length || 0;
 
             const pageKey = p.id || `${activeDocId || 'doc'}-page-${idx}`;
 

@@ -6,6 +6,8 @@ import EditorHeader from './components/Editor/EditorHeader';
 import PageSidebar from './components/Editor/PageSidebar';
 import FabricCanvas from './components/Editor/FabricCanvas';
 import PropertiesSidebar from './components/Editor/PropertiesSidebar';
+import { generateClientSidePDF } from './utils/pdfExportClient';
+import { measureTextWidth } from './utils/textMeasurement';
 import { AlertCircle, X } from 'lucide-react';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit per file
@@ -17,6 +19,7 @@ export default function App() {
   const [selectedElementId, setSelectedElementId] = useState(null);
   const [zoomScale, setZoomScale] = useState(1.0);
   const [showBackgroundMask, setShowBackgroundMask] = useState(true);
+  const [isPageSidebarOpen, setIsPageSidebarOpen] = useState(true);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
@@ -66,9 +69,17 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentDocument]);
 
+  // Consent state (Default FALSE - Unchecked)
+  const [hasConsented, setHasConsented] = useState(false);
+
   // 1. Process one or multiple files
   const handleFilesSelected = async (filesInput) => {
     if (!filesInput || filesInput.length === 0) return;
+
+    if (!hasConsented) {
+      setErrorMessage("Please read and acknowledge the User Responsibility & Usage Notice before uploading a document.");
+      return;
+    }
 
     const files = Array.from(filesInput);
     const validFiles = [];
@@ -104,6 +115,7 @@ export default function App() {
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('consent', 'true');
 
       try {
         const response = await fetch('/api/process', {
@@ -193,7 +205,7 @@ export default function App() {
     );
   };
 
-  // 3. Handle Element Edits
+  // 3. Handle Element Edits with Automatic Canonical Geometry Recalculation
   const handleElementChange = (id, updates) => {
     if (!currentDocument) return;
 
@@ -202,7 +214,34 @@ export default function App() {
 
       const newElements = p.elements.map((el) => {
         if (el.id !== id) return el;
-        return { ...el, ...updates, isEdited: true };
+
+        const merged = { ...el, ...updates, isEdited: true };
+
+        // Recalculate canonical element width when text or font style properties change
+        if (
+          updates.text !== undefined ||
+          updates.fontSize !== undefined ||
+          updates.fontFamily !== undefined ||
+          updates.fontWeight !== undefined ||
+          updates.fontStyle !== undefined
+        ) {
+          const fontSz = merged.fontSize || Math.max(10, (merged.originalHeight || merged.height || 14) * 0.85);
+          const measuredW = measureTextWidth(
+            merged.text || '',
+            fontSz,
+            merged.fontFamily,
+            merged.fontWeight,
+            merged.fontStyle
+          );
+
+          // Auto-adjust width if not explicitly overridden by manual input
+          if (updates.width === undefined) {
+            const minW = Math.max(10, Math.ceil(measuredW + 6));
+            merged.width = minW;
+          }
+        }
+
+        return merged;
       });
 
       return { ...p, elements: newElements };
@@ -251,9 +290,17 @@ export default function App() {
 
     const newPages = currentDocument.pages.map((p, idx) => {
       if (idx !== activePageIndex) return p;
+      const updatedElements = p.elements
+        .map((e) => {
+          if (e.id !== selectedElementId) return e;
+          if (e.isNew) return null; // Newly added element completely removed
+          return { ...e, isDeleted: true, isEdited: true }; // Existing OCR element covered with bgColor patch
+        })
+        .filter(Boolean);
+
       return {
         ...p,
-        elements: p.elements.filter((e) => e.id !== selectedElementId),
+        elements: updatedElements,
       };
     });
 
@@ -331,7 +378,7 @@ export default function App() {
     });
   };
 
-  // 9. Export PNG image
+  // 9. Export image document (Preserves original format JPEG/PNG at native dimensions)
   const handleExportPNG = () => {
     const page = currentDocument?.pages?.[activePageIndex];
     if (!page || !page.backgroundImage) return;
@@ -350,6 +397,19 @@ export default function App() {
       exportCanvas.height = nativeH;
       const ctx = exportCanvas.getContext('2d');
 
+      const isJpeg = page.backgroundImage.startsWith('data:image/jpeg') || 
+                     page.mimeType === 'image/jpeg' || 
+                     currentDocument?.mimeType === 'image/jpeg' || 
+                     /\.(jpe?g)$/i.test(currentDocument?.name || '');
+
+      const mimeType = isJpeg ? 'image/jpeg' : 'image/png';
+      const fileExt = isJpeg ? 'jpg' : 'png';
+
+      if (isJpeg) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, nativeW, nativeH);
+      }
+
       // Draw native high-resolution background image
       ctx.drawImage(img, 0, 0, nativeW, nativeH);
 
@@ -361,7 +421,8 @@ export default function App() {
 
         const isMoved = Math.abs(el.x - origX) > 1 || Math.abs(el.y - origY) > 1;
         const isContentChanged = el.text !== el.originalText;
-        const isEdited = el.isEdited || el.isNew || el.isUserCreated || isMoved || isContentChanged;
+        const isDeleted = Boolean(el.isDeleted);
+        const isEdited = el.isEdited || el.isNew || el.isUserCreated || isMoved || isContentChanged || isDeleted;
 
         const bgColor = el.bgColor || '#ffffff';
 
@@ -370,7 +431,7 @@ export default function App() {
           ctx.fillRect(origX * scaleX, origY * scaleY, origW * scaleX, origH * scaleY);
         }
 
-        if (isEdited && el.text) {
+        if (isEdited && el.text && !isDeleted) {
           const fontSize = (el.fontSize || Math.max(10, origH * 0.85)) * scaleY;
           const fontFamily = el.fontFamily || 'Inter, Arial, sans-serif';
           const normalizedFontWeight = typeof el.fontWeight === 'number'
@@ -389,9 +450,11 @@ export default function App() {
         }
       });
 
-      const dataURL = exportCanvas.toDataURL('image/png', 1.0);
+      const quality = isJpeg ? 0.95 : undefined;
+      const dataURL = exportCanvas.toDataURL(mimeType, quality);
       const link = document.createElement('a');
-      link.download = `${currentDocument?.name || 'edited_document'}_page_${activePageIndex + 1}.png`;
+      const cleanDocName = (currentDocument?.name || 'edited_document').replace(/\.[^/.]+$/, '');
+      link.download = `${cleanDocName}_page_${activePageIndex + 1}.${fileExt}`;
       link.href = dataURL;
       link.click();
     };
@@ -410,7 +473,13 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate PDF document.');
+        let detail = `HTTP ${response.status} (${response.statusText})`;
+        try {
+          const errJson = await response.json();
+          if (errJson.detail) detail = errJson.detail;
+        } catch (e) {}
+        console.warn('[PDF Export Backend Notice] API PDF endpoint error/limit, initiating client PDF generator:', detail);
+        throw new Error(detail);
       }
 
       const blob = await response.blob();
@@ -421,7 +490,13 @@ export default function App() {
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to export PDF document.');
+      console.error('[PDF Export Pipeline Log]', err);
+      try {
+        await generateClientSidePDF(currentDocument);
+      } catch (fallbackErr) {
+        console.error('[Client-side PDF Fallback Error]', fallbackErr);
+        setErrorMessage(`Failed to export PDF document: ${err.message || fallbackErr.message}`);
+      }
     }
   };
 
@@ -462,6 +537,9 @@ export default function App() {
           onShowPrivacyAudit={() => setShowPrivacyAudit(true)}
           theme={theme}
           onToggleTheme={toggleTheme}
+          hasConsented={hasConsented}
+          onConsentChange={setHasConsented}
+          setErrorMessage={setErrorMessage}
         />
       ) : (
         <div className="h-screen flex flex-col">
@@ -482,6 +560,7 @@ export default function App() {
             onBackToHome={() => {
               setDocuments([]);
               setActiveDocId(null);
+              setHasConsented(false);
             }}
             canUndo={canUndo}
             canRedo={canRedo}
@@ -508,6 +587,8 @@ export default function App() {
               }}
               onAddTextElement={handleAddTextElement}
               theme={theme}
+              isOpen={isPageSidebarOpen}
+              onToggleOpen={() => setIsPageSidebarOpen(!isPageSidebarOpen)}
             />
 
             {/* Central Canvas Viewport */}

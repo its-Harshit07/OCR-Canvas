@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 # Ensure backend directory is in sys.path when running from project root
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -38,11 +38,21 @@ def health_check():
 
 
 @app.post("/api/process")
-async def process_document(file: UploadFile = File(...)):
+async def process_document(
+    file: UploadFile = File(...),
+    consent: Optional[str] = Form(None)
+):
     """
     Process uploaded image or PDF document.
     Files are stored strictly in-memory during execution and discarded immediately.
+    Requires explicit user consent acknowledgement before processing.
     """
+    if not consent or consent.lower() not in ("true", "1", "yes"):
+        raise HTTPException(
+            status_code=400,
+            detail="Please acknowledge the User Responsibility & Usage Notice before processing a document."
+        )
+
     filename = file.filename or "uploaded_file"
     ext = os.path.splitext(filename)[1].lower()
     
@@ -82,6 +92,8 @@ async def process_document(file: UploadFile = File(...)):
         del contents
 
 
+import traceback
+
 class PDFExportRequest(BaseModel):
     id: str
     name: str
@@ -106,8 +118,9 @@ async def export_pdf(doc_model: PDFExportRequest):
             }
         )
     except Exception as e:
-        print(f"Error exporting PDF: {type(e).__name__}")
-        raise HTTPException(status_code=500, detail="Failed to generate PDF document.")
+        print(f"[PDF Export Error] {type(e).__name__}: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF document: {str(e)}")
 
 
 if __name__ == "__main__":
